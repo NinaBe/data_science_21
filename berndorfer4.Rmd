@@ -255,7 +255,7 @@ pROC_obj <- roc(as.numeric(as.factor(test_results$survived)), test_results$pred,
             print.auc = TRUE, show.thres = TRUE)
 ```
 
-Der AUC sieht bei Naive Bayes genau gleich aus, was zunächst auf eine identische Performance bei den verwendeten Variablen hindeutet.
+Der AUC sieht bei Naive Bayes mit 0,802 ganz gut aus, hat aber eine leicht schlechtere Performance als mit SVM.
 
 ### 3. Decision Tree
 
@@ -289,5 +289,5 @@ Der Decision Tree hat bei diesem Beispiel mit einem AUC von 0,870 eine bessere P
 
 ## Finden Sie Erklärungen dafür.
 
-Bei Naive Bayes und SVM sieht die Performance in diesem Beispiel gleich aus. Da bei Naive Bayes Distanzen keine Rolle spielen, kann seine Performance jedoch beeinträchtigt werden, wenn Werte wie der Ticketpreis mit reingenommen werden. Hier müsste man dann selbst entscheiden, ab wann ein Ticket z.B. teuer, mittel oder günstig ist und dafür verschiedene Factors erstellen. Bei solchen Berechnungen eignet sich Naive Bayes vermutlich nicht so gut, weil die Einordnung recht subjektiv sein kann. Umgekehrt eignet er sich besser als SVM, wenn mit geringen Datenmengen, die sich leicht in Kategorien einteilen lassen, gearbeitet wird.
+Naive Bayes schneidet in diesem Beispiel ein bisschen schlechter aus als SVM. Da bei Naive Bayes Distanzen keine Rolle spielen, kann seine Performance dadurch beeinträchtigt werden, wenn Werte wie das Alter oder der Ticketpreis mit reingenommen werden. Hier müsste man dann selbst entscheiden, ab wann ein Ticket z.B. teuer, mittel oder günstig ist und dafür verschiedene Factors erstellen. Bei solchen Berechnungen eignet sich Naive Bayes vermutlich nicht so gut, weil die Einordnung recht subjektiv sein kann. Umgekehrt eignet er sich besser als SVM, wenn mit geringen Datenmengen, die sich leicht in Kategorien einteilen lassen, gearbeitet wird.
 Bei dem Decision Tree lässt sich die bessere Performance entweder damit erklären, dass bei den anderen Algorithmen noch nichts optimiert wurde. Es kann auch sein, dass der Decision Tree gerade bei diesem Datensatz sehr gut funktioniert, aber nicht für andere Datenmengen geeignet ist, also eine geringe Generalität besitzt, da er sich zu gut an die vorhandenen Daten angepasst hat (Overfitting) und keine allgemeingültigen Aussagen treffen kann.
