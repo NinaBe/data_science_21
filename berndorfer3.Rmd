@@ -1,0 +1,202 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Hausaufgabe 3
+
+## Dateien importieren und bereinigen (wie letzte Woche)
+
+```{r}
+library(readr)
+book_ratings <- read_delim("BX-CSV-Dump/BX-Book-Ratings.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+books <- read_delim("BX-CSV-Dump/BX-Books.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+users <- read_delim("BX-CSV-Dump/BX-Users.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+```{r}
+library(tidyverse)
+```
+
+```{r}
+books <- books %>%
+  select(-`Image-URL-S`, -`Image-URL-M`, -`Image-URL-L`) %>%
+  mutate(`Book-Author` = str_to_lower(`Book-Author`)) %>%
+  mutate(`Publisher` = str_to_lower(Publisher)) %>%
+  mutate(`Book-Title` = str_to_lower(`Book-Title`)) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "ç", "c")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "ñ", "n")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "é", "e")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "è", "e")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "á", "a")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "à", "a")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "í", "i")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "ç", "c")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "ñ", "n")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "é", "e")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "è", "e")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "á", "a")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "à", "a")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "í", "i")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "ç", "c")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "ñ", "n")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "é", "e")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "è", "e")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "á", "a")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "à", "a")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "í", "i"))
+```
+
+```{r}
+users <- users %>%
+  mutate(Location = str_remove(Location, ".*,")) %>%
+  mutate(Age = as.numeric(Age))
+```
+
+```{r}
+book_ratings$`Book-Rating`[book_ratings$`Book-Rating` == 0] <- NA
+books$`Year-Of-Publication`[books$`Year-Of-Publication` == 0] <- NA
+```
+
+```{r}
+joined <- books %>%
+  left_join(book_ratings) %>%
+  left_join(users)
+```
+```{r}
+library(arules)
+```
+```{r}
+library(arulesViz)
+```
+
+## Spielen Sie mit den Support- und Confidence-Werten. Was fällt Ihnen auf?
+
+
+```{r}
+liste <- split(joined$`Book-Title`, joined$`User-ID`)
+trans <- as(liste, "transactions")
+```
+```{r}
+#trans.rules <- apriori(trans, parameter = list(supp = 0.001, conf = 0.3, target = "rules"))
+trans.rules <- apriori(trans, parameter = list(supp = 0.002, conf = 0.5, target = "rules"))
+```
+```{r}
+head(inspect(subset(trans.rules)), 10)
+```
+
+Je kleiner der Support, desto mehr Regeln ergeben sich, da die Kombinationen aus zwei Titeln nicht so häufig vorkommen müssen, um angezeigt zu werden.
+Bei den Ergebnissen finden sich vor allem Buchreihen. Angezeigt werden hier die 7 Regeln mit den höchsten Support- und Confidence-Werten. Es handelt sich um Bände aus der Harry Potter-Reihe. Da es sich um eine Reihe handelt, ist es logisch, dass sie häufig zusammen gelesen werden.
+
+
+## Wir haben jetzt alle Bewertungen drin, ergibt das Sinn?
+
+Ein Buch, das nur eine Bewertung erhalten hat, wird den Support nach unten ziehen. Es ist nicht möglich, mit diesem Buch eine Assoziation herzustellen, da es ja nur einmal bewertet wurde, es spielt als Transaktion aber trotzdem in den Support mit rein. Wenn bspw. nur bei einer einzigen Transaktion ein Apfel gekauft wurde, wird keine Assioziation mit Äpfeln herstellbar sein, die Transaktion wird aber bei der Berechnung des Supports mitgenutzt. Deshalb würde es Sinn machen, die Bücher mit sehr wenigen Bewertungen rauszunehmen, da sie eher hinderlich bei unserer Analyse sind.
+
+## Wie könnte eine bessere Lösung aussehen?
+
+Wenn wir die Bücher mit wenigen Bewertung rausnehmen, können wir Ergebnisse mit höherem Support erzielen. So können nur die Kombinationen betrachtet werden, die häufig genug auftauchen, um eine sinnvolle Aussage treffen zu können.
+Dafür werden im Folgenden nur Bücher mit mehr als 10 Bewertungen betrachtet:
+
+```{r}
+joined_wb <- joined %>%
+  group_by(`Book-Title`) %>%
+  mutate(anzahl_bewertungen = n()) %>%
+  filter(anzahl_bewertungen > 10) %>%
+  select(`User-ID`, `Book-Title`, `Book-Author`, `Book-Rating`) %>%
+  ungroup()
+```
+
+```{r}
+liste2 <- split(joined_wb$`Book-Title`, joined_wb$`User-ID`)
+```
+```{r}
+trans2 <- as(liste2, "transactions")
+```
+```{r}
+trans.rules2 <- apriori(trans2, parameter = list(supp = 0.002, conf = 0.5, target = "rules"))
+```
+```{r}
+head(inspect(subset(trans.rules2)), 10)
+```
+Wie man sehen kann, werden hier etwas höhere Werte im Support erzielt. Warum beim Left-hand Set bei manchen Regeln zwei Titeln auftauchen, weiß ich allerdings nicht. Vielleicht könnte es bedeuten, dass wenn User*innen wie bei Regel 14 sowohl Harry Potter 2 als auch 3 bewerteten, sie häufig auch Buch 4 bewerteten.
+
+Darüber hinaus würde es genauso Sinn machen, User*innen zu entfernen, die nur eine Bewertung abgegeben haben.
+
+## Erstellen Sie eine Analyse, bei der nicht die Bücher, sondern die Autoren in den Transaktionen enthalten sind
+
+```{r}
+liste3 <- split(joined_wb$`Book-Author`, joined_wb$`User-ID`)
+```
+
+```{r}
+trans3 <- as(liste3, "transactions")
+```
+```{r}
+trans.rules3 <- apriori(trans3, parameter = list(supp = 0.003, conf = 0.5, target = "rules"))
+```
+```{r}
+head(inspect(subset(trans.rules3)), 10)
+```
+
+
+## Fällt Ihnen etwas in der Datenqualität auf?
+
+In der 7. Regel kann man sehen, dass sowohl patricia d. cornwell als auch patricia daniels cornwell genannt werden. Es handelt sich dabei um die gleiche Autorin, die mit unterschiedlichen Schreibweisen abgespeichert wurde und deshalb nicht als eine sondern als zwei (oder gar mehr?) Autor*innen behandelt wird. Das ist problematisch, weil Regel 7 zum einen Unsinn ist und zum anderen die Regeln 8 und 9, in denen eine ihrer Schreibweisen vorkommt, nicht verlässlich sind.
+
+## Wie könnte man das mit regulären Ausdrücken beheben?
+
+Wenn jede*r Autor*in nur eine Schreibweise und somit nur einen Eintrag hätte, gäbe es dieses Problem nicht. Eine Möglichkeit wäre es, Mittelnamen zu vereinheitlichen. Bspw. so, dass alle Mittelnamen immer aus einem Buchstaben und einem Punkt besteht. Mit str_replace_all erwischt man nun nicht nur den ersten Mittelnamen, sondern auch weitere, falls vorhanden.
+Problematisch wären dann allerdings immer noch Namen wie in der ersten Regel (j. d. robb), da wir nicht wissen, ob der erste Name nicht doch irgendwo ausgeschrieben wurde. Alle Vornamen abzukürzen ist aber auch nicht sinnvoll, da die Gefahr besteht, mehrere Autor*innen zu einer*m Autor*in zusammenzufassen. Problematisch ist insgesamt auch, dass zwei verschiedene Autor*innen zusammengefasst werden könnten, die den gleichen Vor- und Nachnamen haben und deren Mittelname(n) mit den gleichen Buchstaben anfangen. Ich würde allerdings behaupten, dass das Risiko relativ gering ist und die Vorteile aus unserer Zusammenfassung größer als dieses Risiko sind.
+
+Leider ist mir das nicht gelungen. Hier mein Versuch:
+
+```{r}
+#joined_wb <- joined_wb %>%
+#  mutate(`Book-Author` = str_replace_all(`Book-Author`, " .* ", " [a-z]. "))
+```
+Alternativ habe ich alle Mittelnamen entfernt:
+```{r}
+joined_wb <- joined_wb %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, " .* ", " "))
+```
+
+## Wie kann man nun noch sicherstellen, dass nur die Autoren weiterempfohlen werden, deren Bücher man auch (mehrheitlich) gut fand?
+
+Statt "wer X gelesen hat, las auch Y" soll nun folgendes angezeigt werden: "wer X mochte, mochte auch Y".
+Eine einfache Lösung wäre es, alle schlechten Bewertungen herauszufiltern. So sind automatisch nur noch Kombinationen zwischen Büchern möglich, die für gut befunden wurden.
+
+```{r}
+joined_gb <- joined_wb %>%
+  filter(`Book-Rating` >= 6)
+```
+```{r}
+liste4 <- split(joined_gb$`Book-Author`, joined_wb$`User-ID`)
+```
+```{r}
+trans4 <- as(liste4, "transactions")
+```
+```{r}
+trans.rules4 <- apriori(trans4, parameter = list(supp = 0.004, conf = 0.5, target = "rules"))
+```
+```{r}
+head(inspect(subset(trans.rules4)), 10)
+```
+Wer z.B. James Patterson und Nora Roberts mochte, wird vermutlich auch Gefallen an Stephen King finden.
+
+## Welche anderen Features wären sinnvoll?
+
+Weitere Features wären z.B. sich Präferenzen für bestimmte Altersgruppen anzeigen zu lassen. So könnten Rankings erstellt werden, was bspw. bei Lesenden in ihren 30ern beliebt ist, was gute Empfehlungen für Jugendlliche sind usw. Dafür würde man wie in der letzten Aufgabe alle Lesenden, die bspw. nicht in ihren 30ern sind, herausfiltern und explizit für diese Altersgruppe Empfehlungen erstellen. Gleiches wäre auch mit Herkunftsland oder Erscheinungsjahr vorstellbar. So könnten Bücher empfohlen werden, die in den 2000ern in Kanada besonders beliebt waren. Der Kreativität sind eigentlich kaum Grenzen gesetzt.

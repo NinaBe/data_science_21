@@ -1,0 +1,212 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Hausaufgabe 2
+
+## Dateien importieren und bereinigen
+
+```{r}
+library(readr)
+book_ratings <- read_delim("BX-CSV-Dump/BX-Book-Ratings.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+books <- read_delim("BX-CSV-Dump/BX-Books.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+users <- read_delim("BX-CSV-Dump/BX-Users.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+Zunächst wird dafür gesorgt, dass alles klein geschrieben wird und beliebte Sonderzeichen durch lesbare Alternativen ersetzt werden, um Doppelnennungen des gleichen Autors, Titels etc. möglichst zu vermeiden. Es ist nicht möglich, alles anzupassen, aber eben so viel wie möglich.
+
+```{r}
+books <- books %>%
+  select(-`Image-URL-S`, -`Image-URL-M`, -`Image-URL-L`) %>%
+  mutate(`Book-Author` = str_to_lower(`Book-Author`)) %>%
+  mutate(`Publisher` = str_to_lower(Publisher)) %>%
+  mutate(`Book-Title` = str_to_lower(`Book-Title`)) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "ç", "c")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "ñ", "n")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "é", "e")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "è", "e")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "á", "a")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "à", "a")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`, "í", "i")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "ç", "c")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "ñ", "n")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "é", "e")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "è", "e")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "á", "a")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "à", "a")) %>%
+  mutate(`Book-Title` = str_replace(`Book-Title`, "í", "i")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "ç", "c")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "ñ", "n")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "é", "e")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "è", "e")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "á", "a")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "à", "a")) %>%
+  mutate(`Publisher` = str_replace(`Publisher`, "í", "i"))
+```
+
+Bei den Ortsangaben sollen aus dem gleichen Grund nur noch die Länder angezeigt werden. Das Alter soll von R als Nummer gelesen werden, damit statt NULL NA in leeren Feldern steht.
+
+```{r}
+users <- users %>%
+  mutate(Location = str_remove(Location, ".*,")) %>%
+  mutate(Age = as.numeric(Age))
+```
+
+Alle Bewertungen, die eine 0 enthalten, sollen nun NA enthalten. Es handelt sich schließlich nicht um besonders schlechte Bewertungen, sondern um leere Felder.
+
+```{r}
+book_ratings$`Book-Rating`[book_ratings$`Book-Rating` == 0] <- NA
+books$`Year-Of-Publication`[books$`Year-Of-Publication` == 0] <- NA
+```
+
+Anschließend werden die bereinigten Datensätze zu einem neuen Datensatz namens joined vereint.
+
+```{r}
+joined <- books %>%
+  left_join(book_ratings) %>%
+  left_join(users)
+```
+
+```{r}
+joined %>%
+  group_by(Publisher) %>%
+  mutate(anzahl_bewertungen = n()) %>%
+  select(Publisher, `Book-Title`, anzahl_bewertungen) %>%
+  unique()
+```
+
+## Gibt es eine Korrelation zwischen Anzahl Bücher pro Publisher und Anzahl Ratings, die die Bücher eines Publishers erhalten?
+
+Zunächst werden die Bücher nach Verlag gruppiert. Dann wird eine neue Variable erstellt, die die Anzahl der Bewertungen jedes Verlags zusammenfasst. Mit select werden die Spalten ausgewählt, die für die Berechnung der nächsten Variable relevant sind (Verlag und Buchtitel), sowie die neue Variable. Mit unique werden Mehrfachnennungen zusammengefasst. Anschließend wird eine weitere neue Variable erstellt, die die Anzahl der Bücher pro Verlag anzeigt.
+Es soll nun geprüft werden, ob zwischen den beiden Variablen eine Korrelation besteht. Dafür brauchen wir nur die beiden neu erzeugten Variablen und sortieren die anderen mit select aus. Die Variablen werden in einem Datensatz namens aufgabe1 gespeichert.
+
+```{r}
+aufgabe1 <- joined %>%
+  group_by(Publisher) %>%
+  mutate(anzahl_bewertungen = n()) %>%
+  select(Publisher, `Book-Title`, anzahl_bewertungen) %>%
+  unique() %>%
+  mutate(anzahl_buecher = n()) %>%
+  ungroup() %>%
+  select(anzahl_buecher, anzahl_bewertungen)
+```
+
+Nun kann mit cor.test die Korrelation zwischen den beiden Variablen durch den Korrelationskoeffizienten berechnet werden.
+
+```{r}
+cor.test(aufgabe1$anzahl_buecher, aufgabe1$anzahl_bewertungen)
+```
+Der Korrelationskoeffizient beträgt ca. 0,83, das heißt die Korrelation zwischen der Anzahl der Bücher pro Verlag und der Anzahl der Bewertungen der Bücher eines Verlags ist sehr stark.
+
+## Haben ältere Bücher mehr Ratings, weil sie mehr Zeit haben, um Ratings zu sammeln?
+
+Bei den Veröffentlichungsjahren werden alle herausgefiltert, die noch nicht erschienen sein können (größer als 2021) oder wo eine sinnvolle Angabe fehlt (0). Es gibt nur 4 Bücher, die vor 1900 erschienen sind; diese sortiere ich der Übersicht halber ebenfalls aus. Es werden auch alle Einträge herausgefiltert, in denen keine Bewertung steht. Wenn wir die Bücher nach Erscheinungsjahr gruppieren, können wir uns mit mutate eine neue Variable erstellen lassen, die die Anzahl der Bewertungen pro Erscheinungsjahr anzeigt.
+
+```{r}
+aufgabe2_0 <-joined %>%
+  filter(`Year-Of-Publication` >= 1900, `Year-Of-Publication` <= 2021) %>%
+  filter(`Book-Rating` > 0) %>%
+  group_by(`Year-Of-Publication`) %>%
+  mutate(anzahl_bewertungen = n()) %>%
+  mutate(alter_buecher = 2021 - `Year-Of-Publication`)
+```
+
+```{r}
+plot(aufgabe2_0$anzahl_bewertungen, aufgabe2_0$`Year-Of-Publication`)
+```
+
+An sich haben Bücher mit zunehmendem Alter mehr Zeit, Bewertungen zu sammeln. Wie man in diesem Plot-Diagramm sehen kann, steigt die Anzahl der Bewertungen jedoch nicht automatisch mit dem Alter des Buches. Vielmehr ist ein Ausschlag in den 90er-Jahren erkennbar: Die in diesen Jahren erschienenen Bücher wurden eindeutig am öftesten bewertet. Das kann jedoch daran liegen, dass mit den 90er-Jahren mehr und mehr Menschen Zugriff auf das Internet bekommen haben und es ihnen überhaupt erst möglich wurde, Bewertungen abzugeben. Diese Menschen haben dann womöglich eher Gegenwartsliteratur gelesen. Eine Aussage wie in der Fragestellung könnte nur getroffen werden, wenn die Bedingungen zur Bewertung über die Jahre die gleichen geblieben sind.
+Eine Möglichkeit wäre es, die Frage so zu konkretisieren, dass nur die Bücher ab 1990 angeschaut werden:
+
+```{r}
+aufgabe2_1 <-joined %>%
+  filter(`Year-Of-Publication` >= 1990, `Year-Of-Publication` <= 2021) %>%
+  filter(`Book-Rating` > 0) %>%
+  group_by(`Year-Of-Publication`) %>%
+  mutate(anzahl_bewertungen = n())
+```
+```{r}
+plot(aufgabe2_1$anzahl_bewertungen, aufgabe2_1$`Year-Of-Publication`)
+```
+
+In diesem Plot-Diagramm kann man erkennen, dass die Bewertungen in den 90ern deutlich zunehmen und danach stark abfallen. Die abfallenden Bewertungen ab 2000 könnte man als eine Korrelation zwischen dem Alter des Buches und der Anzahl der Bewertungen deuten.
+Folgende Berechnungen zeigen, dass ab dem Jahr 2000 nur eine schwache Korrelation zwischen Alter des Buches und Anzahl der Bewertungen vorhanden ist (p = 0,328187):
+
+
+```{r}
+aufgabe2_2 <-joined %>%
+  filter(`Year-Of-Publication` >= 2000, `Year-Of-Publication` <= 2021) %>%
+  filter(`Book-Rating` > 0) %>%
+  group_by(`Year-Of-Publication`) %>%
+  mutate(anzahl_bewertungen = n()) %>%
+  mutate(alter_buecher = 2021 - `Year-Of-Publication`)
+```
+
+```{r}
+cor.test(aufgabe2_2$alter_buecher, aufgabe2_2$anzahl_bewertungen)
+```
+Davor ist sogar eine negative Korrelation erkennbar (p = -0,8317131), was bedeutet, dass eher das Gegenteil der Fragestellung der Fall ist: Je neuer die Bücher insgesamt sind, desto mehr Bewertungen haben sie in diesem Datensatz bekommen. Diese Tendenz ändert sich aber ab den 2000ern, wie oben gezeigt wurde, und es lässt sich vermuten, dass sie sich umkehren wird.
+
+```{r}
+cor.test(aufgabe2_0$alter_buecher, aufgabe2_0$anzahl_bewertungen)
+```
+
+
+## Kann man mit einer linearen Regression etwas davon vorhersagen?
+### zu Aufgabe 1:
+
+```{r}
+aufgabe3_1 <- lm(aufgabe1$anzahl_bewertungen ~ aufgabe1$anzahl_buecher)
+plot(aufgabe1)
+abline(aufgabe3_1)
+```
+
+```{r}
+summary(aufgabe3_1)
+```
+Der Median liegt näher am 3. Quartil als am 1. Quartil, was heißt, dass die Verteilung der Residuen nicht gleichmäßig um die Gerade verteilt sind. R-quared liegt bei 0,6854, was heißt, dass sich die Anzahl der Bewertungen zu ca. 69% mit der Anzahl der Bücher erklären lässt. Eine lineare Regression kann also nur bis zu einem gewissen Grad bei der Vorhersage weiterer Werte weiterhelfen.
+
+### zu Aufgabe 2:
+
+```{r}
+aufgabe3_2 <- lm(aufgabe2_0$alter_buecher ~ aufgabe2_0$anzahl_bewertungen)
+plot(aufgabe2_0$alter_buecher, aufgabe2_0$anzahl_bewertungen)
+abline(aufgabe3_2)
+```
+
+```{r}
+summary(aufgabe3_2)
+```
+
+Hier befindet sich der Median etwas näher am 1. Quartil als am 3. Quartil, die Residuen sind also wieder ungleichmäßg um die Gerade verteilt. R-squared liegt ebenfalls bei 0.6917, also lässt sich die Anzahl der Bewertungen zu 69% mit dem Alter der Bücher erklären. Das lässt sich durch die negative Korrelation erklären. Oben wurde jedoch gezeigt, dass die Tendenz sich ab den 2000ern ändert.
+
+```{r}
+aufgabe3_2 <- lm(aufgabe2_2$alter_buecher ~ aufgabe2_2$anzahl_bewertungen)
+plot(aufgabe2_2$alter_buecher, aufgabe2_2$anzahl_bewertungen)
+abline(aufgabe3_2)
+```
+
+```{r}
+summary(aufgabe3_2)
+```
+
+Mit sehr ungleichmäßig verteilten Residuen und einem R-squared von 0,1077 lassen sich mit linearer Regression weitere Werte also nicht vorhersagen.

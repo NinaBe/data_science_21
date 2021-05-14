@@ -1,0 +1,149 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Hausaufgabe 1
+
+## Dateien importieren
+
+```{r}
+library(readr)
+book_ratings <- read_delim("BX-CSV-Dump/BX-Book-Ratings.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+books <- read_delim("BX-CSV-Dump/BX-Books.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+users <- read_delim("BX-CSV-Dump/BX-Users.csv", 
+    ";", escape_double = FALSE, col_types = cols(Age = col_number()), 
+    trim_ws = TRUE)
+View(users)
+```
+
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+books <- books %>%
+  mutate(`Book-Author` = str_to_lower(`Book-Author`)) %>%
+  mutate(Publisher = str_to_lower(Publisher)) %>%
+  mutate(`Book-Title` = str_to_lower(`Book-Title`)) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`,"ç","c")) %>%
+  mutate(`Book-Author` = str_replace(`Book-Author`,"ñ","n"))
+```
+
+```{r}
+users <- users %>%
+  mutate(Location = str_remove(Location, ".*,"))
+```
+
+```{r}
+book_ratings$`Book-Rating`[book_ratings$`Book-Rating` == 0] <- NA
+```
+
+```{r}
+joined <- books %>%
+  left_join(book_ratings) %>%
+  left_join(users)
+```
+
+
+
+
+
+
+
+## Welche Bücher sind am besten bewertet?
+
+Um in einem Datensatz sowohl die Bewertungen als auch die Buchtitel usw. sehen zu können, werden die Datensätze verbunden. Ich behalte der Übersicht halber nur die für die Hausaufgabe relevanten Spalten bei. Der neue Datensatz heißt books_rated.
+
+
+
+```{r}
+books_rated <- books_rated %>%
+  select(`Book-Title`, `Book-Author`, Publisher, `Book-Rating`)
+```
+
+```{r}
+hist(books_rated$`Book-Rating`)
+```
+
+Wie man im Histogramm sehen kann, gibt es dem ersten Anschein nach sehr viele sehr schlechte Bewertungen (Rating = 0). Wie auf der Seite der Uni Freiburg steht, sind dies die Fälle, in denen keine Bewertung abgegeben wurde, die Skala reicht nur von 1-10. Wir müssen also alle 0-Bewertungen herausfiltern:
+
+```{r}
+books_rated <- books_rated %>%
+  filter(`Book-Rating` != 0)
+```
+
+Alle Bewertungen, die schlechter als 8 sind, werden mit filter() rausgefiltert und die Bewertungen in absteigender Reihenfolge mit arrange(desc()) sortiert. Weil die meisten Bücher mehrere Bewertungen erhalten haben, tauchen sie mehrfach in der Liste auf.
+
+```{r}
+books_rated %>%
+  select(`Book-Rating`, `Book-Author`, `Book-Title`, Publisher) %>%
+  filter(`Book-Rating` >= 8) %>%
+  arrange(desc(`Book-Rating`))
+```
+## Sollte die Anzahl der Bewertungen auch mit reinspielen?
+Die obige Liste ist allerdings unübersichtlich und reicht nicht aus, um aussagen zu können, welche Bücher insgesamt am besten bewertet worden sind. Es werden nur alle Bücher angezeigt, die eine 8er-Bewertung oder höher bekommen haben.
+Ein Buch, das z.B. nur eine 10er-Bewertung bekommen hat, ist aber insgesamt "schlechter" als ein Buch, das sehr viele 10er-Bewertungen bekommen hat. Am besten bewertet wären also jene Bücher, die die meisten hohen Bewertungen erhalten haben, also spielt die Anzahl der Bewertungen auf jeden Fall eine große Rolle.
+
+Dafür werden die Bücher mit group_by() erst nach Titeln gruppiert, dann werden wieder alle Bewertungen unter 8 rausgefiltert. Mit summarise() wird berechnet, welche Buchtitel die meisten der übrigen Bewertungen erhalten haben. Die Anzahl dieser Bewertungen wird wieder in absteigender Reihenfolge sortiert:
+
+```{r}
+books_rated %>%
+  group_by(`Book-Title`) %>%
+  filter(`Book-Rating` >= 8) %>%
+  summarise(anzahl_bewertungen = n()) %>%
+  arrange(desc(anzahl_bewertungen))
+```
+
+The Lovely Bones: A Novel ist das Buch, das die meisten Bewertungen, die 8 oder höher sind, bekommen hat.
+
+Dies gibt uns allerdings immer noch keine Antwort darauf, welches Buch jetzt tatsächlich das "beste" ist. Sehr bekannte Bücher, die sehr viele Bewertungen bekommen haben, haben automatisch mehr positive, aber eventuell auch mehr negative Bewertungen erhalten. Eine weitere Idee wäre also, mit Durchschnittswerten zu arbeiten. Das Buch mit der besten Durchschnittsbewertung, das außerdem genügend Bewertungen erhalten hat (die Durchschnittsbewertung eines Buches, das nur 2 Bewertungen erhalten hat, ist nicht so aussagekräftig wie die eines Buches, das über 100 erhalten hat), ist also höchstwahrscheinlich das "beste" Buch.
+Ich gruppiere die Bücher wieder nach Titeln und lasse mir in einer Spalte die Anzahl der Bewertungen für jedes Buch und in einer weiteren Spalte die durchschnittliche Bewertung eines jeden Buches ausrechnen. Anschließend filtere ich noch alle Bücher heraus, die weniger als 100 Bewertungen erhalten haben. Ich lasse mir die Buchtitel mit den höchsten Durchschnittsbewertungen ganz oben anzeigen:
+
+```{r}
+books_rated %>%
+  group_by(`Book-Title`) %>%
+  summarise(anzahl_bewertungen = n(), mean = mean(`Book-Rating`)) %>%
+  filter(anzahl_bewertungen > 100) %>%
+  arrange(desc(mean))
+```
+Nach dieser Berechnung ist The Two Towers (The Lord of the Rings, Part 2) das bestbewertete Buch. Dennoch könnte man auch argumentieren, dass Harry Potter and the Goblet of Fire (Book 4) und Harry Potter and the Prisoner of Azkaban (Book 3) zu den bestbewertetsten Büchern zählen, weil sie mehr Bewertungen und eine ähnliche Durchschnittsbewertung bekommen haben.
+
+## Welche Autoren sind am besten bewertet?
+Um herauszufinden, welche Autor:innen am besten bewertet sind, muss man die Daten nur anders gruppieren und zwar nach Autor:innen:
+
+```{r}
+books_rated %>%
+  group_by(`Book-Author`) %>%
+  summarise(anzahl_bewertungen = n(), mean = mean(`Book-Rating`)) %>%
+  filter(anzahl_bewertungen > 100) %>%
+  arrange(desc(mean))
+```
+Bei diesen Ergebnissen würde ich argumentieren, dass eine Autorin wie J.K. Rowling, die sehr viele Bewertungen mehr als die anderen Autor:innen mit den höchsten Durchschnittsbewertungen erhalten hat, die beste Autorin ist, auch wenn ihre Durchschnittsbewertung nicht ganz oben steht.
+
+
+## Welcher Verlag hat die besten Bücher?
+Für den Verlag mit den besten Büchern gruppiert man nach Verlagen:
+
+```{r}
+books_rated %>%
+  group_by(`Publisher`) %>%
+  summarise(anzahl_bewertungen = n(), mean = mean(`Book-Rating`)) %>%
+  filter(anzahl_bewertungen > 100) %>%
+  arrange(desc(mean))
+```
+Ähnlich wie bei den Autor:innen würde ich auch bei den Verlagen argumentieren, dass Verlage wie Andrews McMeel Publishing und Del Rey, die weitaus mehr Bewertungen als die anderen Verlage bekommen haben und bei den Durchschnittsbewertungen ungefähr gleichauf sind, hier die Verlage mit den "besten" Büchern sind.

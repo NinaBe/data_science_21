@@ -1,0 +1,293 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(readr)
+titanic <- read_delim("titanic.csv", ";", 
+    escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+library(tidyverse)
+```
+
+```{r}
+library(e1071)
+```
+
+```{r}
+library(caret)
+```
+
+```{r}
+library(pROC)
+```
+
+```{r}
+titanic1 <- titanic %>%
+  mutate(name = str_to_lower(name)) %>%
+  mutate(home.dest = str_to_lower(home.dest)) %>%
+  mutate(age = as.numeric(str_replace(age,",","."))) %>%
+  mutate(fare = as.numeric(str_replace(fare, ",", "."))) %>%
+  mutate(survived = as.factor(survived))
+```
+
+## Bitte erstellen Sie ein Notebook mit weiteren Features.
+
+
+1. Zusammenhang zwischen Geschlecht, Alter, Klasse und Überlebensrate mit SVM und 3 Variablen.
+
+```{r}
+titanic_akt <- titanic1 %>%
+  select(survived, age, pclass, sex) %>%
+  mutate(sex = ifelse(sex == "female", 1, 0))
+```
+Alle Variablen sind numerisch bis auf survived (factor).
+
+```{r}
+titanic_akt <- na.omit(titanic_akt)
+```
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10, , savePredictions = TRUE)
+```
+
+```{r}
+set.seed(393)
+inTrain <- createDataPartition(
+  y = titanic_akt$survived,
+  p = .8,
+  list = FALSE)
+training <- titanic_akt[ inTrain,]
+testing  <- titanic_akt[-inTrain,]
+```
+
+```{r}
+model_svm <- train(survived~., data = training, trControl = train_control, method = "svmLinear")
+
+summary(model_svm)
+pred <- predict(model_svm, testing[,-1], probability = FALSE)
+```
+
+```{r}
+model_svm$pred
+```
+
+
+```{r}
+(test_results <- cbind(pred, testing))
+test_results <- test_results %>%
+  mutate(survived = as.numeric(survived)) %>%
+  mutate(pred = as.numeric(pred))
+```
+
+```{r}
+table(test_results$pred, testing$survived)
+```
+
+```{r}
+pROC_obj <- roc(test_results$survived, test_results$pred,
+            smoothed = TRUE,
+            ci = TRUE, ci.alpha = 0.9, stratified = FALSE,
+            plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
+            print.auc = TRUE, show.thres = TRUE)
+```
+Der AUC liegt bei 0,818, was bedeutet, dass die Vorhersagbarkeit der Überlebensrate anhand der Klasse, des Alters und Geschlechts sehr gut ist.
+
+2. Zusammenhang zwischen Preis des Tickets, Alter, Klasse, Geschlecht und Überlebensrate mit SVM und 4 Variablen.
+```{r}
+titanic_askt <- titanic1 %>%
+  select(survived, age, sex, pclass, fare) %>%
+  mutate(sex = ifelse(sex == "female", 1, 0))
+```
+
+```{r}
+titanic_askt <- na.omit(titanic_askt)
+```
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10, , savePredictions = TRUE)
+```
+
+```{r}
+set.seed(393)
+inTrain <- createDataPartition(
+  y = titanic_askt$survived,
+  p = .8,
+  list = FALSE)
+training <- titanic_askt[ inTrain,]
+testing  <- titanic_askt[-inTrain,]
+```
+
+```{r}
+model_svm <- svm(formula = survived ~ ., data = training, probability = TRUE)
+summary(model_svm)
+pred <- predict(model_svm, testing[,-1], probability = TRUE)
+```
+
+```{r}
+(test_results <- cbind(pred, testing))
+test_results <- test_results %>%
+  mutate(survived = as.numeric(survived)) %>%
+  mutate(pred = as.numeric(pred))
+```
+
+```{r}
+head(attr(pred, "probabilities"))
+```
+
+```{r}
+confusionMatrix(pred,testing$survived)
+```
+
+```{r}
+pROC_obj <- roc(test_results$survived, test_results$pred,
+            smoothed = TRUE,
+            ci = TRUE, ci.alpha = 0.9, stratified = FALSE,
+            plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
+            print.auc = TRUE, show.thres = TRUE)
+```
+
+Hier erreichen wir erneut einen sehr guten AUC mit 0,830 Das bedeutet, dass die Überlebensrate sich sehr gut mit dem Alter, Geschlecht, der Klasse und dem Ticketpreis vorhersagen lässt. Da der AUC ähnlich ist wie bei der vorherigen Berechnung ohne Ticketpreis, lässt sich sagen, dass der Preis des Tickets wenig zu der Vorhersagbarkeit der Überlebensrate beiträgt.
+
+3. Man könnte statt des Preises die Variablen sibsp und parch hinzufügen. Es könnte schließlich auch einen Einfluss auf das Überleben gehabt haben, ob Reisende allein unterwegs waren oder eben mit Eltern, Kindern, Geschwistern oder Partner*innen.
+
+```{r}
+titanic_all <- titanic1 %>%
+  select(survived, age, sex, pclass, sibsp, parch) %>%
+  mutate(sex = ifelse(sex == "female", 1, 0))
+```
+
+```{r}
+titanic_all <- na.omit(titanic_all)
+```
+
+```{r}
+train_control <- trainControl(method = "cv", number = 10, , savePredictions = TRUE)
+```
+
+```{r}
+set.seed(393)
+inTrain <- createDataPartition(
+  y = titanic_all$survived,
+  p = .8,
+  list = FALSE)
+training <- titanic_all[ inTrain,]
+testing  <- titanic_all[-inTrain,]
+```
+
+```{r}
+model_svm <- svm(formula = survived ~ ., data = training, probability = TRUE)
+summary(model_svm)
+pred <- predict(model_svm, testing[,-1], probability = TRUE)
+```
+
+```{r}
+(test_results <- cbind(pred, testing))
+test_results <- test_results %>%
+  mutate(survived = as.numeric(survived)) %>%
+  mutate(pred = as.numeric(pred))
+```
+
+```{r}
+head(attr(pred, "probabilities"))
+```
+
+```{r}
+confusionMatrix(pred,testing$survived)
+```
+
+```{r}
+pROC_obj <- roc(test_results$survived, test_results$pred,
+            smoothed = TRUE,
+            ci = TRUE, ci.alpha = 0.9, stratified = FALSE,
+            plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
+            print.auc = TRUE, show.thres = TRUE)
+```
+Mit einem AUC von 0,836 haben wir eine sehr gute Vorhersagbarkeit der Überlebensrate herstellen können.
+
+## Was sind die Unterschiede in der Performance der Algorithmen?
+
+Um uns die Unterschiede in der Performance der Algorithmen anzuschauen, setzen wir die gleiche Kombination aus Features mit den unterschiedlichen Algorithmen um. Ich verwende hierfür die Variablen Geschlecht, Alter, Klasse, Geschwister oder Partner*innen (sibsp) und Eltern oder Kinder (parch), wie in Beispiel 3 in Aufgabe eins mit SVM umgesetzt. Der dabei erzielte AUC lag bei 0,836..
+
+
+### 2. Naive Bayes
+```{r}
+my_training <- training %>%
+  mutate(sex = as.factor(sex))%>%
+  mutate(pclass = as.factor(pclass)) %>%
+  mutate(age = as.factor(ifelse(age < 14, "child", "adult"))) %>%
+  mutate(sibsp = as.factor(sibsp)) %>%
+  mutate(parch = as.factor(parch))
+```
+
+```{r}
+model <- naiveBayes(survived ~ ., data = my_training)
+model
+```
+
+```{r}
+my_testing <- testing %>%
+  mutate(sex = as.factor(sex)) %>%
+  mutate(pclass = as.factor(pclass))%>%
+  mutate(age = as.factor(ifelse(age < 14, "child", "adult"))) %>%
+  mutate(sibsp = as.factor(sibsp)) %>%
+  mutate(parch = as.factor(parch))
+  
+pred <- predict(model, my_testing)
+table(pred, my_testing$survived)
+```
+
+
+```{r}
+(test_results <- cbind(pred, my_testing))
+```
+
+```{r}
+test_results <- test_results %>%
+  mutate(pred = as.numeric(pred))
+pROC_obj <- roc(as.numeric(as.factor(test_results$survived)), test_results$pred,
+            smoothed = TRUE,
+            ci = TRUE, ci.alpha=0.9, stratified = FALSE,
+            plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
+            print.auc = TRUE, show.thres = TRUE)
+```
+
+Der AUC sieht bei Naive Bayes genau gleich aus, was zunächst auf eine identische Performance bei den verwendeten Variablen hindeutet.
+
+### 3. Decision Tree
+
+```{r}
+library(rpart)
+library(rpart.plot)
+tree<- rpart(survived~., data = training, method = 'class')
+rpart.plot(tree)
+```
+```{r}
+dt_results <- predict(tree, testing[,-1], type = 'prob')
+head(model.results.dt <- cbind(testing,dt_results),500)
+```
+```{r}
+test.results2 <- test.results %>%
+  mutate(pred = ifelse(pred >= 0.5, 1, 0))
+table(test.results2$pred, testing$survived)
+```
+
+
+```{r}
+pROC_obj <- roc(model.results.dt$survived,model.results.dt$`1`,
+            smoothed = TRUE,
+            # arguments for ci
+            ci = TRUE, ci.alpha=0.9, stratified = FALSE,
+            # arguments for plot
+            plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
+            print.auc = TRUE, show.thres = TRUE)
+```
+Der Decision Tree hat bei diesem Beispiel eine bessere Performance als die anderen Algorithmen, was ungewöhnlich ist.
+
+## Finden Sie Erklärungen dafür.
+
+Bei Naive Bayes und SVM sieht die Performance in diesem Beispiel gleich aus. Da bei Naive Bayes Distanzen keine Rolle spielen, kann seine Performance jedoch beeinträchtigt werden, wenn Werte wie der Ticketpreis mit reingenommen werden. Hier müsste man dann selbst entscheiden, ab wann ein Ticket z.B. teuer, mittel oder günstig ist und dafür verschiedene Factors erstellen. Bei solchen Berechnungen eignet sich Naive Bayes vermutlich nicht so gut, weil die Einordnung recht subjektiv sein kann. Umgekehrt eignet er sich besser als SVM, wenn mit geringen Datenmengen, die sich leicht in Kategorien einteilen lassen, gearbeitet wird.
+Bei dem Decision Tree lässt sich die bessere Performance entweder damit erklären, dass bei den anderen Algorithmen noch nichts optimiert wurde. Es kann auch sein, dass der Decision Tree gerade bei diesem Datensatz sehr gut funktioniert, aber nicht für andere Datenmengen geeignet ist, also eine geringe Generalität besitzt, da er sich zu gut an die vorhandenen Daten angepasst hat (Overfitting) und keine allgemeingültigen Aussagen treffen kann.
