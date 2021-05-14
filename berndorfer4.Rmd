@@ -270,9 +270,9 @@ dt_results <- predict(tree, testing[,-1], type = 'prob')
 head(model.results.dt <- cbind(testing,dt_results),500)
 ```
 ```{r}
-test.results2 <- test.results %>%
+test_results2 <- test_results %>%
   mutate(pred = ifelse(pred >= 0.5, 1, 0))
-table(test.results2$pred, testing$survived)
+table(test_results2$pred, testing$survived)
 ```
 
 
@@ -285,7 +285,7 @@ pROC_obj <- roc(model.results.dt$survived,model.results.dt$`1`,
             plot = TRUE, auc.polygon = TRUE, max.auc.polygon = TRUE, grid = TRUE,
             print.auc = TRUE, show.thres = TRUE)
 ```
-Der Decision Tree hat bei diesem Beispiel eine bessere Performance als die anderen Algorithmen, was ungewöhnlich ist.
+Der Decision Tree hat bei diesem Beispiel mit einem AUC von 0,870 eine bessere Performance als die anderen Algorithmen, was ungewöhnlich ist.
 
 ## Finden Sie Erklärungen dafür.
 
