@@ -86,43 +86,53 @@ Für das hierarchische Clustering sollte nur eine kleine Datenmenge verwendet we
 joined <- na.omit(joined)
 ```
 ```{r}
-joined_new <- joined %>%
+joined_new_withbooks <- joined %>%
   select(`Book-Title`, `Book-Author`, `Book-Rating`, Age, `User-ID`) %>%
   filter(`User-ID` <= 424)
 ```
 
 Die User-ID muss anschließend aus den oben genannten Gründen herausgefiltert werden.
 ```{r}
-joined_new <- joined_new %>%
-  select(-`User-ID`)
+joined_new <- joined_new_withbooks %>%
+  select(-`User-ID`, -`Book-Title`, -`Book-Author`)
+```
+### Daten standardisieren
+```{r}
+joined_new_scaled <- as.data.frame(scale(joined_new))
 ```
 
 ## Hierarchisches Clustering
 Zuerst wird die Distanzmatrix erstellt.
 
 ```{r}
-(joined_new_dist <- dist(joined_new, method = "euclidean"))
+(joined_new_dist <- dist(joined_new_scaled, method = "euclidean"))
 ```
 ```{r}
 joined_new_hc <- hclust(joined_new_dist, method = "complete")
 plot(joined_new_hc)
 ```
-Auf den ersten Blick lassen sich hier 2 bis max. 4 Cluster erkennen. Ich habe das Dendogramm auch einmal erstellt mit einem Datensatz, aus dem ich auch Autornamen und Buchtitel herausgefiltert habe, um zu sehen, ob sie tatsächlich keinen Einfluss haben, und es zeigte sich kein Unterschied zu dem, in dem Autornamen und Buchtitel enthalten waren. Ich entscheide mich für 3 Cluster:
+Auf den ersten Blick lassen sich hier 2 bis max. 4 Cluster erkennen. Ich entscheide mich für 4 Cluster:
 
 ```{r}
 plot(joined_new_hc)
-groups <- cutree(joined_new_hc, k = 3)
-rect.hclust(joined_new_hc, k = 3, border = "red")
+groups <- cutree(joined_new_hc, k = 4)
+rect.hclust(joined_new_hc, k = 4, border = "red")
 ```
 
 ```{r}
-joined_new %>%
+joined_new_withbooks %>%
   mutate(cluster = groups) %>%
   arrange(desc(cluster))
 ```
 
-Das erste Cluster beinhaltet sehr junge User*innen, das zweite eher ältere und das dritte User*innen mittleren Alters. Alle Cluster haben fast durchweg gute Bewertungen abgegeben, nur selten liegen Bewertungen bei unter 5. Dies ist scheinbar eine Tendenz der hier ausgewählten Daten. Bei dem ersten, jungen Cluster fielen mir viele Klassiker und wichtige Werke auf wie Bücher von Charlotte Bronte, Nathaniel Hawthorne, William Shakespeare, Lewis Carroll und Anne Frank, die sie vermutlich in der Schule lesen. Das zweite Cluster mit den mittelalten bis älteren Leser*innen beinhaltete spannende und unterhaltsame Literatur wie von Dan Brown, Ken Follett, Maeve Binchy und James Patterson, evtl. zur Entspannung nach Feierabend. Im dritten Cluster mit den Leser*innen jüngeren bis mittleren Alters fanden sich vor allem moderne Klassiker (George Orwell, Milan Kundera, J.D. Salinger, Margaret Atwood) und Werke berühmter (Fantasy-)Autor*innen (J.K. Rowling, Neil Gaiman, Philip Pullman, Stephen King). Dieses Cluster scheint sowohl den Anspruch zu haben, sich weiterzubilden, als auch sich zu entspannen.
+Das erste Cluster beinhaltet junge User*innen (17-29), die eher mittelmäßige Bewertungen geben (4-7). Das zweite Cluster beinhalter eher User*innen mittleren Alters bis ältere User*innen (35-62), die relativ gute Bewertungen abgeben (7-10). Das dritte zeigt wieder eher junge User*innen (17-27), die aber positive Bewertungen abgeben (7-10). Im vierten Cluster finden sich wieder die mittelalten bis älteren User*innen (35-62), die allerdings eher negative Bewertungen abgeben (3-6) 
 
 ## K Means Clustering
 
-## Scree-Test, um k zu ermitteln
+Beim hierarchischen Clustering haben wir 3 Cluster verwendet. Dies könnten wir hier auch machen, wir probieren es trotzdem nochmal mit dem Scree-Test:
+### Scree-Test, um k zu ermitteln
+
+
+
+
+
