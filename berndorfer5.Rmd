@@ -1,0 +1,128 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(caret)
+library(cluster)
+```
+
+## Daten importieren, bereinigen und zusammenfügen
+
+```{r}
+library(readr)
+book_ratings <- read_delim("BX-CSV-Dump/BX-Book-Ratings.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+books <- read_delim("BX-CSV-Dump/BX-Books.csv", 
+    ";", escape_backslash = TRUE, escape_double = FALSE, 
+    trim_ws = TRUE)
+```
+
+```{r}
+library(readr)
+users <- read_delim("BX-CSV-Dump/BX-Users.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE)
+```
+
+```{r}
+books <- books %>%
+  select(-`Image-URL-S`, -`Image-URL-M`, -`Image-URL-L`) %>%
+  mutate(`Book-Author` = str_to_lower(`Book-Author`)) %>%
+  mutate(`Publisher` = str_to_lower(Publisher)) %>%
+  mutate(`Book-Title` = str_to_lower(`Book-Title`)) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "ç", "c")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "ñ", "n")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "é", "e")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "è", "e")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "á", "a")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "à", "a")) %>%
+  mutate(`Book-Author` = str_replace_all(`Book-Author`, "í", "i")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "ç", "c")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "ñ", "n")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "é", "e")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "è", "e")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "á", "a")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "à", "a")) %>%
+  mutate(`Book-Title` = str_replace_all(`Book-Title`, "í", "i")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "ç", "c")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "ñ", "n")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "é", "e")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "è", "e")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "á", "a")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "à", "a")) %>%
+  mutate(`Publisher` = str_replace_all(`Publisher`, "í", "i"))
+```
+
+```{r}
+users <- users %>%
+  mutate(Location = str_remove(Location, ".*,")) %>%
+  mutate(Age = as.numeric(Age))
+```
+
+```{r}
+book_ratings$`Book-Rating`[book_ratings$`Book-Rating` == 0] <- NA
+books$`Year-Of-Publication`[books$`Year-Of-Publication` == 0] <- NA
+```
+
+```{r}
+joined <- books %>%
+  left_join(book_ratings) %>%
+  left_join(users)
+```
+
+# Hausaufgabe 5:
+## Versuchen Sie die Leser aus dem Buch-Datenset zu clustern: Welche Bücher gehören in welches Cluster?
+
+Um die Lesenden zu clustern, muss man zunächst herausfinden, welche Variablen sich dafür eignen. Die User-ID eignet sich dafür nicht, da sich aus ihr keine* Distanzen ableiten lassen. Das Alter und die Bewertung der Lesenden eignet sich allerdings. Um die 2. Teilfrage beantworten zu können, werden Autornamen und Buchtitel ebenfalls behalten. Sie werden nicht berücksichtigt, da es sich nicht um numerische Objekte handelt.
+Für das hierarchische Clustering sollte nur eine kleine Datenmenge verwendet werden. Zunächst werden also alle NAs entfernt. Um die Datenmenge weiter zu reduzieren, werden nur ca. 200 Zeilen genommen. Hierbei kann man unterschiedlich vorgehen. Zuerst habe ich die ersten 200 Zeilen genommen. Der Datensatz ist nach den ISBN sortiert, weshalb sich später in den Clustern keine aussagekräftige Auswahl an Buchtiteln ergeben hat (es stand fast überall John Grisham). Damit eine Vielfalt an Büchern berücksichtigt wird, habe ich den Datensatz nach User-ID sortiert und mir die ca. ersten 200 Zeilen angeguckt. Den Cut habe ich bei User 424 gezogen, alle darüber habe ich herausgefiltert. Wir haben nun insgesamt 203 Zeilen mit zufälligen Büchern und Bewertungen.
+
+```{r}
+joined <- na.omit(joined)
+```
+```{r}
+joined_new <- joined %>%
+  select(`Book-Title`, `Book-Author`, `Book-Rating`, Age, `User-ID`) %>%
+  filter(`User-ID` <= 424)
+```
+
+Die User-ID muss anschließend aus den oben genannten Gründen herausgefiltert werden.
+```{r}
+joined_new <- joined_new %>%
+  select(-`User-ID`)
+```
+
+## Hierarchisches Clustering
+Zuerst wird die Distanzmatrix erstellt.
+
+```{r}
+(joined_new_dist <- dist(joined_new, method = "euclidean"))
+```
+```{r}
+joined_new_hc <- hclust(joined_new_dist, method = "complete")
+plot(joined_new_hc)
+```
+Auf den ersten Blick lassen sich hier 2 bis max. 4 Cluster erkennen. Ich habe das Dendogramm auch einmal erstellt mit einem Datensatz, aus dem ich auch Autornamen und Buchtitel herausgefiltert habe, um zu sehen, ob sie tatsächlich keinen Einfluss haben, und es zeigte sich kein Unterschied zu dem, in dem Autornamen und Buchtitel enthalten waren. Ich entscheide mich für 3 Cluster:
+
+```{r}
+plot(joined_new_hc)
+groups <- cutree(joined_new_hc, k = 3)
+rect.hclust(joined_new_hc, k = 3, border = "red")
+```
+
+```{r}
+joined_new %>%
+  mutate(cluster = groups) %>%
+  arrange(desc(cluster))
+```
+
+Das erste Cluster beinhaltet sehr junge User*innen, das zweite eher ältere und das dritte User*innen mittleren Alters. Alle Cluster haben fast durchweg gute Bewertungen abgegeben, nur selten liegen Bewertungen bei unter 5. Dies ist scheinbar eine Tendenz der hier ausgewählten Daten. Bei dem ersten, jungen Cluster fielen mir viele Klassiker und wichtige Werke auf wie Bücher von Charlotte Bronte, Nathaniel Hawthorne, William Shakespeare, Lewis Carroll und Anne Frank, die sie vermutlich in der Schule lesen. Das zweite Cluster mit den mittelalten bis älteren Leser*innen beinhaltete spannende und unterhaltsame Literatur wie von Dan Brown, Ken Follett, Maeve Binchy und James Patterson, evtl. zur Entspannung nach Feierabend. Im dritten Cluster mit den Leser*innen jüngeren bis mittleren Alters fanden sich vor allem moderne Klassiker (George Orwell, Milan Kundera, J.D. Salinger, Margaret Atwood) und Werke berühmter (Fantasy-)Autor*innen (J.K. Rowling, Neil Gaiman, Philip Pullman, Stephen King). Dieses Cluster scheint sowohl den Anspruch zu haben, sich weiterzubilden, als auch sich zu entspannen.
+
+## K Means Clustering
+
+## Scree-Test, um k zu ermitteln
