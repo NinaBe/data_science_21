@@ -79,8 +79,8 @@ joined <- books %>%
 # Hausaufgabe 5:
 ## Versuchen Sie die Leser aus dem Buch-Datenset zu clustern: Welche Bücher gehören in welches Cluster?
 
-Um die Lesenden zu clustern, muss man zunächst herausfinden, welche Variablen sich dafür eignen. Die User-ID eignet sich dafür nicht, da sich aus ihr keine* Distanzen ableiten lassen. Das Alter und die Bewertung der Lesenden eignet sich allerdings. Um die 2. Teilfrage beantworten zu können, werden Autornamen und Buchtitel ebenfalls behalten. Sie werden nicht berücksichtigt, da es sich nicht um numerische Objekte handelt.
-Für das hierarchische Clustering sollte nur eine kleine Datenmenge verwendet werden. Zunächst werden also alle NAs entfernt. Um die Datenmenge weiter zu reduzieren, werden nur ca. 200 Zeilen genommen. Hierbei kann man unterschiedlich vorgehen. Zuerst habe ich die ersten 200 Zeilen genommen. Der Datensatz ist nach den ISBN sortiert, weshalb sich später in den Clustern keine aussagekräftige Auswahl an Buchtiteln ergeben hat (es stand fast überall John Grisham). Damit eine Vielfalt an Büchern berücksichtigt wird, habe ich den Datensatz nach User-ID sortiert und mir die ca. ersten 200 Zeilen angeguckt. Den Cut habe ich bei User 424 gezogen, alle darüber habe ich herausgefiltert. Wir haben nun insgesamt 203 Zeilen mit zufälligen Büchern und Bewertungen.
+Um die Lesenden zu clustern, muss man zunächst herausfinden, welche Variablen sich dafür eignen. Die User-ID eignet sich dafür nicht, da sich aus ihr keine Distanzen ableiten lassen. Das Alter und die Bewertungen der Lesenden eignen sich allerdings.
+Für das hierarchische Clustering sollte nur eine kleine Datenmenge verwendet werden. Zunächst werden also alle NAs entfernt. Um die Datenmenge weiter zu reduzieren, werden nur ca. 200 Zeilen genommen. Hierbei kann man unterschiedlich vorgehen. Zuerst habe ich die ersten 200 Zeilen genommen. Der Datensatz ist aber nach den ISBN sortiert, weshalb sich später in den Clustern keine aussagekräftige Auswahl an Buchtiteln ergeben hat (es stand fast überall John Grisham). Damit eine Vielfalt an Büchern berücksichtigt wird, habe ich den Datensatz nach User-ID sortiert und mir die ca. ersten 200 Zeilen angeguckt. Den Cut habe ich bei User 424 gezogen, alle darüber habe ich herausgefiltert. Wir haben nun insgesamt 203 Zeilen mit zufälligen Büchern und Bewertungen.
 
 ```{r}
 joined <- na.omit(joined)
@@ -91,7 +91,8 @@ joined_new_withbooks <- joined %>%
   filter(`User-ID` <= 424)
 ```
 
-Die User-ID muss anschließend aus den oben genannten Gründen herausgefiltert werden.
+Die User-ID muss anschließend aus den oben genannten Gründen herausgefiltert werden. Auch die Daten zu den Büchern werden herausgefiltert.
+
 ```{r}
 joined_new <- joined_new_withbooks %>%
   select(-`User-ID`, -`Book-Title`, -`Book-Author`)
@@ -127,18 +128,21 @@ joined_new_withbooks %>%
 
 Das erste Cluster beinhaltet junge User*innen (17-29), die eher mittelmäßige Bewertungen geben (4-7). Das zweite Cluster beinhaltet eher User*innen mittleren Alters bis ältere User*innen (35-62), die relativ gute Bewertungen abgeben (7-10). Das dritte zeigt wieder eher junge User*innen (17-27), die aber positive Bewertungen abgeben (7-10). Im vierten Cluster finden sich wieder die mittelalten bis älteren User*innen (35-62), die allerdings eher negative Bewertungen abgeben (3-6) 
 Im ersten Cluster finden sich sowohl Bücher der Gegenwartsliteratur (Bücher von T.C. Boyle, Arthur Philips) als auch ältere Klassiker wie Shakespeare. Auch Fantasy-Klassiker wie Herr der Ringe und Narnia tauchen hier auf. Das erste Cluster scheint ein reges Interesse an sowohl zeitgenössischer als auch älterer, gehobener als auch anspruchsloser Literatur zu haben, also ein sehr breites Interessensspektrum, diese Bücher aber scheinbar nicht sehr ansprechend fand.
-Auch das zweite Cluster scheint ein breites Interessensspektrum zu haben: Eoterische Bücher (Paolo Coelho), spannende Bücher (Dan Brown), moderne Klassiker (Margaret Atwood, J.D. Salinger), populäre Sachbücher (Michael Moore).
+Auch das zweite Cluster scheint ein breites Interessensspektrum zu haben: Esoterische Bücher (Paolo Coelho), spannende Bücher (Dan Brown), moderne Klassiker (Margaret Atwood, J.D. Salinger), populäre Sachbücher (Michael Moore).
 Das dritte Cluster beinhaltet berühmte Fantasybücher (von Philip Pullman J.k. Rowling, Tolkien, Neil Gaiman, Stephen King), Klassiker und moderne Klassiker (von Nathaniel Hawthorne, Mark Twain, Lewis Carroll, Charlotte Bronte, George Orwell). Dies ist das erste Cluster, in dem sich eine gewisse Regelmäßigkeit erkennen lässt. Diese Bücher scheinen der jungen Altersgruppe der Cluster 1 und 3 besonders zu gefallen.
 Die Bücher im vierten Cluster sind nicht sehr bekannt, was Sinn macht, da sie auch nicht sehr beliebt sind.
 ###Fazit:
 Ich schließe aus meinen Ausführungen, dass es mehr Sinn macht, die User nur nach Alter und nicht nach Alter und Bewertungen zu clustern. Bei dem Clustering nach Alter und Bewertungen haben wir sehr unterschiedliche Arten von Büchern in den Clusters und können nicht so richtig auf Präferenzen schließen. Wenn man sie nur nach Alter clustert, erhält man viel aussagekräftigere Ergebnisse:
+
 ## Hierarchisches Clustering nur mit Alter
 
 ```{r}
 joined_new_age <- joined_new %>%
   select(-`Book-Rating`)
 ```
+
 Ein Standardisieren ist hier nicht nötig, da wir nur mit einer Variable arbeiten.
+
 ```{r}
 (joined_new_dist <- dist(joined_new_age, method = "euclidean"))
 ```
@@ -147,6 +151,7 @@ Ein Standardisieren ist hier nicht nötig, da wir nur mit einer Variable arbeite
 joined_new_hc <- hclust(joined_new_dist, method = "complete")
 plot(joined_new_hc)
 ```
+Hier macht meiner Meinung nach eine Unterteilung in 2 Cluster Sinn.
 
 ```{r}
 plot(joined_new_hc)
@@ -162,10 +167,12 @@ joined_new_withbooks %>%
 
 Bei dem ersten, jungen (17-29) Cluster fielen mir viele Klassiker und wichtige Werke auf wie Bücher von Charlotte Bronte, William Shakespeare, Jane Austen, Mark Twain, George Orwell und Anne Frank, die sie vermutlich in der Schule lesen, aber auch beliebte Fantasybücher und Gegenwartsromane (J.K. Rowling, Stephen King, Tolkien, Neil Gaiman), die typisch für die Generation sind. Das zweite Cluster mit Leser*innen mittleren Alters und älteren Leser*innen (35-62) beinhaltete spannende und unterhaltsame Literatur für Erwachsene wie von Dan Brown, Ken Follett und Maeve Binchy, aber auch anspruchsvolle, moderne Klassiker (wie von Milan Kundera, Margaret Atwood, J.D. Salinger).
 ###Fazit:
-In dieser Unterscheidung bekommt man schon ein stärkeres Gefühl dafür, was für Bücher die beiden Personengruppen bevorzugen. Nur das Alter zu benutzen, ist vermutlich jedoch nicht wirklich genug, um ein Interessensprofil zu erstellen. Ich bleibe für das K Means Clustering jedoch dabei, weil die Ergebnisse für mich mehr Sinn machen.
+In dieser Unterscheidung bekommt man schon ein stärkeres Gefühl dafür, was für Bücher die beiden Personengruppen bevorzugen. Nur das Alter zu benutzen, ist vermutlich jedoch nicht wirklich genug, um ein Interessensprofil zu erstellen. Es bräuchte weiterer, aussagekräftigerer Variablen.
 
 ## K Means Clustering
+
 Der Vollständigkeit halber soll noch veranschaulicht werden, wie die obigen Berechnungen im K Means Clustering aussehen.
+
 ### Clustern mit Alter und Rating
 Scree-Test, um k zu ermitteln:
 
@@ -192,10 +199,13 @@ k.means.fit <- kmeans(joined_new_scaled, 4)
 ```{r}
 k.means.fit$size
 ```
+Die Verteilung sieht ganz gut aus.
+
 ```{r}
 clusplot(joined_new, k.means.fit$cluster, color = TRUE, shade = TRUE,
           labels = 4, lines = 0, main = "K-means cluster plot")
 ```
+
 ### Clustern nur mit Alter
 Skree-Test:
 ```{r}
@@ -220,6 +230,8 @@ k.means.fit <- kmeans(joined_new_age, 2)
 ```{r}
 k.means.fit$size
 ```
+Auch hier ist die Verteilung in Ordnung.
+
 ```{r}
 clusplot(joined_new, k.means.fit$cluster, color = TRUE, shade = TRUE,
           labels = 4, lines = 0, main = "K-means cluster plot")
