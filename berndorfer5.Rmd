@@ -130,7 +130,7 @@ Im ersten Cluster finden sich sowohl Bücher der Gegenwartsliteratur (Bücher vo
 Auch das zweite Cluster scheint ein breites Interessensspektrum zu haben: Eoterische Bücher (Paolo Coelho), spannende Bücher (Dan Brown), moderne Klassiker (Margaret Atwood, J.D. Salinger), populäre Sachbücher (Michael Moore).
 Das dritte Cluster beinhaltet berühmte Fantasybücher (von Philip Pullman J.k. Rowling, Tolkien, Neil Gaiman, Stephen King), Klassiker und moderne Klassiker (von Nathaniel Hawthorne, Mark Twain, Lewis Carroll, Charlotte Bronte, George Orwell). Dies ist das erste Cluster, in dem sich eine gewisse Regelmäßigkeit erkennen lässt. Diese Bücher scheinen der jungen Altersgruppe der Cluster 1 und 3 besonders zu gefallen.
 Die Bücher im vierten Cluster sind nicht sehr bekannt, was Sinn macht, da sie auch nicht sehr beliebt sind.
-###Fazit
+###Fazit:
 Ich schließe aus meinen Ausführungen, dass es mehr Sinn macht, die User nur nach Alter und nicht nach Alter und Bewertungen zu clustern. Bei dem Clustering nach Alter und Bewertungen haben wir sehr unterschiedliche Arten von Büchern in den Clusters und können nicht so richtig auf Präferenzen schließen. Wenn man sie nur nach Alter clustert, erhält man viel aussagekräftigere Ergebnisse:
 ## Hierarchisches Clustering nur mit Alter
 
@@ -138,7 +138,7 @@ Ich schließe aus meinen Ausführungen, dass es mehr Sinn macht, die User nur na
 joined_new_age <- joined_new %>%
   select(-`Book-Rating`)
 ```
-
+Ein Standardisieren ist hier nicht nötig, da wir nur mit einer Variable arbeiten.
 ```{r}
 (joined_new_dist <- dist(joined_new_age, method = "euclidean"))
 ```
@@ -162,14 +162,67 @@ joined_new_withbooks %>%
 
 Bei dem ersten, jungen (17-29) Cluster fielen mir viele Klassiker und wichtige Werke auf wie Bücher von Charlotte Bronte, William Shakespeare, Jane Austen, Mark Twain, George Orwell und Anne Frank, die sie vermutlich in der Schule lesen, aber auch beliebte Fantasybücher und Gegenwartsromane (J.K. Rowling, Stephen King, Tolkien, Neil Gaiman), die typisch für die Generation sind. Das zweite Cluster mit Leser*innen mittleren Alters und älteren Leser*innen (35-62) beinhaltete spannende und unterhaltsame Literatur für Erwachsene wie von Dan Brown, Ken Follett und Maeve Binchy, aber auch anspruchsvolle, moderne Klassiker (wie von Milan Kundera, Margaret Atwood, J.D. Salinger).
 ###Fazit:
-In dieser Unterscheidung bekommt man schon ein stärkeres Gefühl dafür, was für Bücher die beiden Personengruppen bevorzugen. Nur das Alter zu benutzen, ist vermutlich jedoch nicht wirklich genug, um e
+In dieser Unterscheidung bekommt man schon ein stärkeres Gefühl dafür, was für Bücher die beiden Personengruppen bevorzugen. Nur das Alter zu benutzen, ist vermutlich jedoch nicht wirklich genug, um ein Interessensprofil zu erstellen. Ich bleibe für das K Means Clustering jedoch dabei, weil die Ergebnisse für mich mehr Sinn machen.
 
 ## K Means Clustering
+Der Vollständigkeit halber soll noch veranschaulicht werden, wie die obigen Berechnungen im K Means Clustering aussehen.
+### Clustern mit Alter und Rating
+Scree-Test, um k zu ermitteln:
 
-Beim hierarchischen Clustering haben wir 3 Cluster verwendet. Dies könnten wir hier auch machen, wir probieren es trotzdem nochmal mit dem Scree-Test:
-### Scree-Test, um k zu ermitteln
+```{r}
+k <- (nrow(joined_new_scaled)-1)*sum(apply(joined_new_scaled, 2, var))
+  for (i in 2:10) k[i] <- sum(kmeans(joined_new_scaled, centers = i)$withinss)
+plot(1:10, k, type = "b", xlab = "Number of Clusters",
+  ylab = "Within groups sum of squares")                                   
+```
 
+Bei diesem Scree-Tree ist nicht so leicht erkennbar, wie viele Cluster gemacht werden sollten. Bei der Berechnung mit Bewertungen und Alter scheinen 2-4 Cluster Sinn zu machen, also bleibe ich bei 4.
 
+```{r}
+joined_new_k_dist <- dist(joined_new_scaled, method = "euclidean")
+joined_new_k_hc <- hclust(joined_new_k_dist, method = "ward.D2")
+plot(joined_new_k_hc)
+groups <- cutree(joined_new_k_hc, k = 4)
+rect.hclust(joined_new_k_hc, k = 4, border = "red")
+```
 
+```{r}
+k.means.fit <- kmeans(joined_new_scaled, 4)
+```
+```{r}
+k.means.fit$size
+```
+```{r}
+clusplot(joined_new, k.means.fit$cluster, color = TRUE, shade = TRUE,
+          labels = 4, lines = 0, main = "K-means cluster plot")
+```
+### Clustern nur mit Alter
+Skree-Test:
+```{r}
+k <- (nrow(joined_new_age)-1)*sum(apply(joined_new_age, 2, var))
+  for (i in 2:10) k[i] <- sum(kmeans(joined_new_age, centers = i)$withinss)
+plot(1:10, k, type = "b", xlab = "Number of Clusters",
+  ylab = "Within groups sum of squares")                                   
+```
+Nimmt man nur das Alter mit rein, bestätigt sich meine Vermutung durch den Scree-Test, dass 2 Cluster Sinn machen.
+
+```{r}
+joined_new_k_dist <- dist(joined_new_age, method = "euclidean")
+joined_new_k_hc <- hclust(joined_new_k_dist, method = "ward.D2")
+plot(joined_new_k_hc)
+groups <- cutree(joined_new_k_hc, k = 2)
+rect.hclust(joined_new_k_hc, k = 2, border = "red")
+```
+
+```{r}
+k.means.fit <- kmeans(joined_new_age, 2)
+```
+```{r}
+k.means.fit$size
+```
+```{r}
+clusplot(joined_new, k.means.fit$cluster, color = TRUE, shade = TRUE,
+          labels = 4, lines = 0, main = "K-means cluster plot")
+```
 
 
